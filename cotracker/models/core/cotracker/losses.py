@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 from cotracker.models.core.model_utils import reduce_masked_mean
 import torch.nn as nn
-from typing import List
+from typing import List, Optional
 
 
 def sequence_loss(
@@ -19,6 +19,7 @@ def sequence_loss(
     gamma=0.8,
     add_huber_loss=False,
     loss_only_for_visible=False,
+    **kwargs,
 ):
     """Loss function defined over sequence of flow predictions"""
     total_flow_loss = 0.0
@@ -93,7 +94,7 @@ def sequence_prob_loss(
     return total_logprob_loss / len(tracks)
 
 
-def masked_mean(data: torch.Tensor, mask: torch.Tensor | None, dim: List[int]):
+def masked_mean(data: torch.Tensor, mask: Optional[torch.Tensor], dim: List[int]):
     if mask is None:
         return data.mean(dim=dim, keepdim=True)
     mask = mask.float()
