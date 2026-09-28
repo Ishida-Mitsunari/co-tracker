@@ -37,9 +37,13 @@ def sequence_loss(
             else:
                 i_loss = (flow_pred - flow_gt[j]).abs()  # B, S, N, 2
             i_loss = torch.mean(i_loss, dim=3)  # B, S, N
+            # NaN * 0 is still NaN; drop non-finite residuals before the mask.
+            i_loss = torch.nan_to_num(i_loss, nan=0.0, posinf=0.0, neginf=0.0)
             valid_ = valids[j].clone()
             if loss_only_for_visible:
                 valid_ = valid_ * vis[j]
+            valid_ = valid_ * torch.isfinite(flow_pred).all(dim=-1).to(valid_.dtype) * torch.isfinite(
+                flow_gt[j]).all(dim=-1).to(valid_.dtype)
             flow_loss += i_weight * reduce_masked_mean(i_loss, valid_)
         flow_loss = flow_loss / n_predictions
         total_flow_loss += flow_loss
@@ -84,9 +88,11 @@ def sequence_prob_loss(
         logprob_loss = 0.0
         for i in range(n_predictions):
             err = torch.sum((tracks[j][i].detach() - target_points[j]) ** 2, dim=-1)
+            err = torch.nan_to_num(err, nan=1e6, posinf=1e6, neginf=1e6)
             valid = (err <= expected_dist_thresh**2).float()
             logprob = F.binary_cross_entropy(confidence[j][i], valid, reduction="none")
             logprob *= visibility[j]
+            logprob = torch.nan_to_num(logprob, nan=0.0, posinf=0.0, neginf=0.0)
             logprob = torch.mean(logprob, dim=[1, 2])
             logprob_loss += logprob
         logprob_loss = logprob_loss / n_predictions
